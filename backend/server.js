@@ -29,6 +29,6 @@ async function testDb() {
   }
 }
 app.listen(PORT, () => {
-  console.log("server runnimg on port " + PORT);
+  console.log("server running on port " + PORT);
   testDb();
 });
