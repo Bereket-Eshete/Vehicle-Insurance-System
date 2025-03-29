@@ -1,4 +1,5 @@
 import express from "express";
+import { testDb } from "./config/db.js";
 import helmet from "helmet";
 import morgan from "morgan";
 import cors from "cors";
@@ -17,6 +18,8 @@ app.use(helmet());
 app.use(morgan("dev")); //log the request
 
 app.use("/api/hello", helloBackendRoutes);
+
 app.listen(PORT, () => {
-  console.log("server runnimg on port " + PORT);
+  testDb();
+  console.log("server running on port " + PORT);
 });
