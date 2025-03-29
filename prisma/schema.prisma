@@ -18,7 +18,7 @@ model User {
   lastName String
   email   String @unique
   password String
-  role Role @default(USER)
+  role Role @default(CUSTOMER)
   isVerified Boolean @default(false)
   verificationToken String?
   verificationTokenExpiredAt DateTime?
@@ -30,7 +30,7 @@ model User {
 }
 
 enum Role{
-  USER
+  CUSTOMER
   ADMIN
 }
 model profile {
