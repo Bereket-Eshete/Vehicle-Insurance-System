@@ -4,7 +4,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import cors from "cors";
 import dotenv from "dotenv";
-import helloBackendRoutes from "./routes/helloBackendRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 dotenv.config();
 
 const app = express();
@@ -17,7 +17,7 @@ app.use(cors());
 app.use(helmet());
 app.use(morgan("dev")); //log the request
 
-app.use("/api/hello", helloBackendRoutes);
+app.use("/api/auth", authRoutes);
 
 app.listen(PORT, () => {
   testDb();
