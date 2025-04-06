@@ -4,7 +4,9 @@ import helmet from "helmet";
 import morgan from "morgan";
 import cors from "cors";
 import dotenv from "dotenv";
-import helloBackendRoutes from "./routes/helloBackendRoutes.js";
+import cookieParser from "cookie-parser";
+import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 dotenv.config();
 
 const app = express();
@@ -15,9 +17,13 @@ app.use(express.json());
 app.use(cors());
 //helemt is a security middelware that helps you protect your app by setting various Http headers
 app.use(helmet());
-app.use(morgan("dev")); //log the request
-
-app.use("/api/hello", helloBackendRoutes);
+//log the request
+app.use(morgan("dev"));
+//used to parse the cookie from the request
+app.use(cookieParser());
+//endpoints
+app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 
 app.listen(PORT, () => {
   testDb();
