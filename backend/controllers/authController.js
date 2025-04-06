@@ -11,21 +11,25 @@ const prisma = new PrismaClient();
 export const Signup = async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
   try {
+    //cheking all input fields are not empty
     if (!firstName || !lastName || !email || !password) {
       throw new Error("All fields are required!");
     }
     const userAlreadyExist = await prisma.user.findUnique({
       where: { email: email },
     });
+    //checking if user already exist
     if (userAlreadyExist) {
       return res
         .status(400)
-        .json({ succes: false, message: "user already exists" });
+        .json({ success: false, message: "user already exists" });
     }
+    //hashing the password before storing into the database
     const hashePassword = await bcrypt.hash(password, 10);
     const verificationToken = Math.floor(
       1000000 + Math.random() * 900000
     ).toString();
+    //creating the new user and also save into the database
     const newUser = await prisma.user.create({
       data: {
         firstName,
@@ -40,6 +44,7 @@ export const Signup = async (req, res) => {
       },
       include: { profile: true },
     });
+    //generate Token and set it into a cookie
     generateTokenAndSetCookie(res, newUser.id, newUser.role);
     //send verfication email
     sendVerificationEmail(email, verificationToken);
@@ -51,10 +56,11 @@ export const Signup = async (req, res) => {
     res.status(400).json({ succes: false, message: error.message });
   }
 };
-
 export const verifyEmail = async (req, res) => {
+  //extracting data from the request
   const { email, code } = req.body;
   try {
+    //find user from the database
     const user = await prisma.user.findFirst({
       where: {
         email,
@@ -62,9 +68,11 @@ export const verifyEmail = async (req, res) => {
         verificationTokenExpiredAt: { gt: new Date() },
       },
     });
+    //check if user with this code exists
     if (!user) {
       throw new Error("Invalid or expired verification code");
     }
+    //update some fields from the database
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -73,6 +81,7 @@ export const verifyEmail = async (req, res) => {
         verificationTokenExpiredAt: null,
       },
     });
+    //returning a user data
     res.status(200).json({
       success: true,
       message: "Email verified succesfully",
@@ -92,7 +101,6 @@ export const verifyEmail = async (req, res) => {
     });
   }
 };
-
 export const resendCode = async (req, res) => {
   const { email } = req.body;
   try {
@@ -125,7 +133,6 @@ export const resendCode = async (req, res) => {
     });
   }
 };
-
 export const Login = async (req, res) => {
   const { email, password } = req.body;
   try {
