@@ -7,37 +7,157 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  CUSTOMER
+}
+
 model User {
   id                         String    @id @default(uuid())
   email                      String    @unique
   password                   String
-  createdAt                  DateTime  @default(now())
   firstName                  String
-  isVerified                 Boolean   @default(false)
   lastName                   String
-  resetPasswordExpiredAt     DateTime?
+  isVerified                 Boolean   @default(false)
   resetPasswordToken         String?
-  role                       Role      @default(CUSTOMER)
-  updatedAt                  DateTime  @updatedAt
+  resetPasswordExpiredAt     DateTime?
   verificationToken          String?
   verificationTokenExpiredAt DateTime?
-  profile                    profile?
+  role                       Role      @default(CUSTOMER)
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  profile          Profile?
+  vehicles         Vehicle[]
+  policies         Policy[]
+  payments         Payment[]
+  claimsAsCustomer Claim[]        @relation("CustomerClaims")
+  claimsAsAdmin    Claim[]        @relation("AdminClaims")
+  notifications    Notification[]
+  reports          Report[]
 }
 
-model profile {
-  id          String    @id @default(uuid())
-  userId      String    @unique
-  phone       String?
-  address     String?
-  dateOfBirth DateTime?
-  avator      String?
-  bio         String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Profile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  phone         String?
+  address       String?
+  dateOfBirth   DateTime?
+  avator        String?
+  bio           String?
+  age           Int?
+  phone2        String?
+  country       String?   @default("Ethiopia")
+  city          String?
+  subCity       String?
+  gender        String?
+  occupation    String?
+  status        String?
+  salary        Float?
+  position      String?
+  qualification String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
 }
 
-enum Role {
-  CUSTOMER
-  ADMIN
+model Vehicle {
+  id              String   @id @default(uuid())
+  name            String
+  model           String
+  status          String
+  brand           String
+  vin             String   @unique
+  year            Int
+  fuelType        String
+  vehicleType     String
+  marketValue     Float
+  odometerReading Float
+  color           String
+  purchaseDate    DateTime
+  isCommercial    Boolean
+  customerId      String
+  customer        User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  policies        Policy[]
+  claims          Claim[]
+}
+
+model Policy {
+  id                 String    @id @default(uuid())
+  name               String
+  type               String
+  premiumAmount      Float
+  startDate          DateTime
+  endDate            DateTime
+  coverageDetails    String
+  status             String
+  coverageAmount     Float
+  gracePeriod        Int
+  termsAndConditions String
+  customerId         String
+  customer           User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  payments           Payment[]
+  claims             Claim[]
+  Vehicle            Vehicle?  @relation(fields: [vehicleId], references: [id])
+  vehicleId          String?
+}
+
+model Payment {
+  payNo       String   @id @default(uuid())
+  name        String
+  date        DateTime
+  status      String
+  receipt     String?
+  method      String
+  type        String
+  amount      Float
+  reason      String
+  description String
+  referenceNo String
+  customerId  String
+  policyId    String
+  customer    User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  policy      Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+}
+
+model Claim {
+  id                 String   @id @default(uuid())
+  type               String
+  status             String
+  supportingDocument String?
+  date               DateTime
+  reason             String
+  amount             Float
+  customerId         String
+  adminId            String?
+  vehicleId          String
+  policyId           String
+
+  customer User    @relation("CustomerClaims", fields: [customerId], references: [id], onDelete: Cascade)
+  admin    User?   @relation("AdminClaims", fields: [adminId], references: [id], onDelete: SetNull)
+  vehicle  Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  policy   Policy  @relation(fields: [policyId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  title      String
+  message    String
+  type       String
+  status     String
+  sentDate   DateTime
+  customerId String
+  customer   User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id            String   @id @default(uuid())
+  type          String
+  generatedDate DateTime
+  content       String
+  format        String
+  remarks       String?
+  adminId       String?
+  admin         User?    @relation(fields: [adminId], references: [id], onDelete: SetNull)
 }
