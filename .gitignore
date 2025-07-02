@@ -40,7 +40,7 @@ yarn.lock
 dist/
 build/
 .out/
-
+bash.exe.stackdump
 #  Editor/OS Files
 .vscode/
 .idea/

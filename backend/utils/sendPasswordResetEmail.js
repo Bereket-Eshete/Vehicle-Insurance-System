@@ -1,10 +1,8 @@
-import { Resend } from "resend";
-import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
-
+import jwt from "jsonwebtoken";
+import { Resend } from "resend";
+import dotenv from "dotenv";
 dotenv.config();
-
 const prisma = new PrismaClient();
 const resend = new Resend(process.env.API_KEY);
 export const sendPassResetEmail = async (email) => {
@@ -12,13 +10,18 @@ export const sendPassResetEmail = async (email) => {
     const user = await prisma.user.findUnique({
       where: { email },
     });
+
     if (!user) {
-      throw new Error("user not found");
+      return {
+        success: false,
+        message: "If this email exists, we've sent a reset link",
+      }; // Don't reveal if user doesn't exist for security
     }
+
     const resetToken = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
-    console.log(resetToken);
+
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -26,24 +29,31 @@ export const sendPassResetEmail = async (email) => {
         resetPasswordExpiredAt: new Date(Date.now() + 3600000),
       },
     });
-    const resetLink = `http://localhost:3000/api/auth/resetpassword?token=${resetToken}`;
+
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+
     const response = await resend.emails.send({
       from: "Acme <onboarding@resend.dev>",
       to: email,
-      subject: "Email Verification Code",
+      subject: "Password Reset Request",
       html: `
-              <h2>Almost There!</h2>
-              <p>Click The Link Below:</p>
-              <a herf="${resetLink}">${resetLink}</a>
-              <p>This code expires in 1 hour.</p>`,
+        <h2>Password Reset</h2>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetLink}">Reset Password</a>
+        <p>This link expires in 1 hour.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+      `,
     });
 
-    console.log("Email sent successfully:", response);
-    return response;
+    return {
+      success: true,
+      message: "Password reset link sent",
+    };
   } catch (error) {
+    console.error("Error sending reset email:", error);
     return {
       success: false,
-      message: error.message,
+      message: "Failed to send reset email",
     };
   }
 };
