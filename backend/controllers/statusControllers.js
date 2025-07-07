@@ -15,7 +15,7 @@ export const getDashboardStats = async (req, res) => {
       prisma.policy.count({
         where: {
           customerId: userId,
-          status: "ACTIVE",
+          status: "active",
         },
       }),
       prisma.vehicle.count({
@@ -32,7 +32,7 @@ export const getDashboardStats = async (req, res) => {
       prisma.payment.findFirst({
         where: {
           customerId: userId,
-          status: "COMPLETED",
+          status: "completed",
         },
         orderBy: {
           date: "desc",

@@ -12,6 +12,9 @@ import policyRoutes from "./routes/policyRoutes.js";
 import quoteRoutes from "./routes/quoteRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import satusRoutes from "./routes/statusRoutes.js";
+import claimRoutes from "./routes/claimRoutes.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
+import profileRoute from "./routes/profileRoute.js";
 dotenv.config();
 
 const app = express();
@@ -42,6 +45,9 @@ app.use("/api/policy", policyRoutes);
 app.use("/api/quote", quoteRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/status", satusRoutes);
+app.use("/api/claim", claimRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/api/profile", profileRoute);
 app.listen(PORT, () => {
   testDb();
   console.log("server running on port " + PORT);

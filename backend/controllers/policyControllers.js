@@ -79,93 +79,239 @@ export const getPolicyById = async (req, res) => {
   }
 };
 // controllers/policyController.ts
-// controllers/policyController.ts
+
 export const getCustomerPolicies = async (req, res) => {
   try {
-    const { userId } = req.query;
+    // Extract customerId from the request query
+    // const { customerId } = req.query;
 
-    console.log("Received request for userId:", userId); // Debug log
+    // // Validate customerId
+    // if (!customerId || typeof customerId !== "string") {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Valid customerId is required as a query parameter",
+    //   });
+    // }
 
-    if (!userId || typeof userId !== "string") {
-      return res.status(400).json({
-        success: false,
-        message: "Valid user ID is required",
-      });
-    }
-
-    // Debug: Log the exact query we'll make to Prisma
-    console.log(`Querying policies for userId: ${userId}`);
-
+    // Fetch policies associated with the specific customerId
     const policies = await prisma.policy.findMany({
       where: {
-        customerId: userId, // Ensure this matches your DB column exactly
+        customerId: "71ce959c-cf1a-47bd-9455-ea7bc3c5a783", // Filter for policies belonging to this
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        premiumAmount: true,
+        coverageDetails: true,
+        features: true,
+        vehicleType: true,
+        startDate: true,
+        endDate: true,
         vehicle: {
           select: {
-            name: true,
-          },
-        },
-      },
-    });
-
-    console.log(`Found ${policies.length} policies`); // Debug log
-
-    return res.status(200).json({
-      success: true,
-      data: policies.map((policy) => ({
-        ...policy,
-        startDate: policy.startDate.toISOString(),
-        endDate: policy.endDate.toISOString(),
-      })),
-    });
-  } catch (error) {
-    console.error("Database error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch policies",
-    });
-  }
-};
-// controllers/policyController.ts
-export const getAllPoliciesWithCustomers = async (req, res) => {
-  try {
-    console.log("Fetching all policies with customerId");
-
-    const policies = await prisma.policy.findMany({
-      where: {
-        customerId: {
-          not: null, // Only policies with customerId
-          not: "", // And not empty string
-        },
-      },
-      include: {
-        vehicle: {
-          select: {
-            name: true,
+            name: true, // Include vehicle details if needed
           },
         },
       },
       orderBy: {
-        startDate: "desc",
+        startDate: "asc", // Optional: sort by policy start date
       },
     });
 
-    console.log(`Found ${policies.length} policies with customers`);
+    // Optional: Log the count for debugging
+    console.log(
+      `Found ${policies.length} policies for customerId: ${customerId}`
+    );
+
+    // Parse the 'features' field if it's stored as JSON
+    const parsedPolicies = policies.map((policy) => ({
+      ...policy,
+      features: policy.features || [], // Default to empty array if null
+    }));
+
+    // Return the policies
+    res.status(200).json({
+      success: true,
+      count: policies.length,
+      parsedPolicies,
+    });
+  } catch (error) {
+    console.error("Error fetching customer policies:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to retrieve customer policies",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+export const getUserPolicies = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    console.log("🔥 Reached getUserPolicies route");
+    console.log("User ID from query:", userId);
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    const policies = await prisma.policy.findMany({
+      where: {
+        customerId: userId,
+      },
+      include: {
+        vehicle: {
+          select: {
+            id: true,
+            name: true,
+            model: true,
+            brand: true,
+            year: true,
+            vin: true,
+          },
+        },
+        payments: {
+          orderBy: {
+            date: "desc",
+          },
+          take: 1,
+        },
+      },
+      orderBy: {
+        endDate: "asc",
+      },
+    });
+
+    if (!policies || policies.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: "No policies found for this user",
+      });
+    }
+
+    const formattedPolicies = policies.map((policy) => ({
+      id: policy.id,
+      policyNumber: policy.id,
+      name: policy.name,
+      type: policy.type,
+      startDate: policy.startDate.toISOString(),
+      endDate: policy.endDate.toISOString(),
+      premiumAmount: policy.premiumAmount,
+      coverageDetails: policy.coverageDetails,
+      status: policy.status,
+      vehicle: policy.vehicle
+        ? {
+            name: `${policy.vehicle.brand} ${policy.vehicle.model}`,
+            model: policy.vehicle.model,
+            brand: policy.vehicle.brand,
+            year: policy.vehicle.year,
+            vin: policy.vehicle.vin,
+          }
+        : null,
+      lastPayment: policy.payments[0]
+        ? {
+            date: policy.payments[0].date.toISOString(),
+            amount: policy.payments[0].amount,
+          }
+        : null,
+    }));
 
     return res.status(200).json({
       success: true,
-      data: policies.map((policy) => ({
-        ...policy,
-        startDate: policy.startDate.toISOString(),
-        endDate: policy.endDate.toISOString(),
-      })),
+      data: formattedPolicies,
     });
   } catch (error) {
-    console.error("Database error:", error);
+    console.error("Error fetching user policies:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch policies",
+      message: "Internal server error",
+    });
+  }
+};
+// controllers/policyController.ts
+// controllers/policyController.js
+export const getUserPoliciesForDashboard = async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    const policies = await prisma.policy.findMany({
+      where: { customerId: userId },
+      include: {
+        vehicle: true,
+        payments: {
+          orderBy: { date: "desc" },
+          take: 1,
+        },
+      },
+      orderBy: { endDate: "asc" },
+    });
+
+    const formattedPolicies = policies.map((policy) => {
+      // Safely parse coverageDetails
+      let coverageDetails = {};
+      try {
+        coverageDetails = policy.coverageDetails
+          ? JSON.parse(policy.coverageDetails)
+          : {};
+      } catch (error) {
+        console.error(
+          `Error parsing coverageDetails for policy ${policy.id}:`,
+          error
+        );
+        // Fallback to plain text if not valid JSON
+        coverageDetails = {
+          description: policy.coverageDetails,
+        };
+      }
+
+      return {
+        id: policy.id,
+        name: policy.name,
+        type: policy.type,
+        startDate: policy.startDate.toISOString(),
+        endDate: policy.endDate.toISOString(),
+        premiumAmount: policy.premiumAmount,
+        status: policy.status,
+        vehicle: policy.vehicle
+          ? {
+              name: `${policy.vehicle.brand} ${policy.vehicle.model}`,
+              model: policy.vehicle.model,
+              brand: policy.vehicle.brand,
+              year: policy.vehicle.year,
+              vin: policy.vehicle.vin,
+            }
+          : null,
+        coverageDetails, // Use the safely parsed version
+        lastPayment: policy.payments[0]
+          ? {
+              amount: policy.payments[0].amount,
+              date: policy.payments[0].date.toISOString(),
+            }
+          : null,
+        vehicleId: policy.vehicleId,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: formattedPolicies,
+    });
+  } catch (error) {
+    console.error("Error fetching policies:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
 };

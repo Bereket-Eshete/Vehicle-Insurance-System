@@ -13,7 +13,7 @@ enum Role {
 }
 
 model User {
-  id                         String    @id @default(uuid())
+  id                         String    @id 
   email                      String    @unique
   password                   String
   firstName                  String
@@ -31,15 +31,15 @@ model User {
   vehicles         Vehicle[]
   policies         Policy[]
   payments         Payment[]
-  claimsAsCustomer Claim[]        @relation("CustomerClaims")
-  claimsAsAdmin    Claim[]        @relation("AdminClaims")
+  claimsAsCustomer  Claim[]     @relation("CustomerClaims")
+  claimsAsAdmin     Claim[]     @relation("AdminClaims")
   notifications    Notification[]
   reports          Report[]
   quotes                     Quote[]
 }
 
 model Profile {
-  id            String    @id @default(uuid())
+  id            String    @id 
   userId        String    @unique
   phone         String?
   address       String?
@@ -64,7 +64,7 @@ model Profile {
 }
 
 model Vehicle {
-  id              String   @id @default(uuid())
+  id              String   @id 
   name            String
   model           String
   status          String
@@ -86,7 +86,7 @@ model Vehicle {
 }
 
 model Payment {
-  payNo       String   @id @default(uuid())
+  payNo       String   @id 
   name        String
   date        DateTime
   status      String
@@ -104,26 +104,31 @@ model Payment {
 }
 
 model Claim {
-  id                 String   @id @default(uuid())
+  id                 String   @id 
   type               String
-  status             String
+  status             String   @default("pending")
   supportingDocument String?
   date               DateTime
   reason             String
-  amount             Float
+  amount             Float    @default(0)
   customerId         String
   adminId            String?
   vehicleId          String
   policyId           String
+  details            Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
+  // Relations
   customer User    @relation("CustomerClaims", fields: [customerId], references: [id], onDelete: Cascade)
   admin    User?   @relation("AdminClaims", fields: [adminId], references: [id], onDelete: SetNull)
   vehicle  Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   policy   Policy  @relation(fields: [policyId], references: [id], onDelete: Cascade)
 }
 
+
 model Notification {
-  id         String   @id @default(uuid())
+  id         String   @id 
   title      String
   message    String
   type       String
@@ -134,7 +139,7 @@ model Notification {
 }
 
 model Report {
-  id            String   @id @default(uuid())
+  id            String   @id 
   type          String
   generatedDate DateTime
   content       String
@@ -144,7 +149,7 @@ model Report {
   admin         User?    @relation(fields: [adminId], references: [id], onDelete: SetNull)
 }
 model Quote {
-  id                 String   @id @default(uuid())
+  id                 String   @id 
   userId             String?  // Optional if the user isn’t logged in
   user               User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   vehicleId          String?
@@ -191,7 +196,7 @@ model Quote {
 
 // Define the AdditionalDriver model
 model AdditionalDriver {
-  id           String   @id @default(uuid())
+  id           String   @id 
   quoteId      String   // Link to the quote
   quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   name         String

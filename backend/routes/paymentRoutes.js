@@ -4,6 +4,7 @@ import {
   processPayment,
   getPaymentHistory,
   getPaymentReceipt,
+  recentPayment,
 } from "../controllers/paymentControllers.js";
 import { authMiddleware } from "../midleware/authmidleware.js";
 
@@ -16,5 +17,5 @@ router.get("/history", authMiddleware, getPaymentHistory);
 // Get payment receipt
 router.get("/receipt/:paymentId", authMiddleware, getPaymentReceipt);
 // routes/policyRoutes.ts
-
+router.get("/recent", recentPayment);
 export default router;

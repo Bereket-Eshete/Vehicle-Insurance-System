@@ -1,8 +1,8 @@
 // import { PrismaClient } from "@prisma/client";
 // const prisma = new PrismaClient();
+
 // export const calculateQuote = async (req, res) => {
 //   try {
-//     // Extract data from request body
 //     const {
 //       fullName,
 //       age,
@@ -31,10 +31,10 @@
 //       coverageDuration,
 //       startDate,
 //       additionalDrivers,
-//       coverageLevel, // Ensure this field is extracted
+//       coverageLevel,
 //     } = req.body;
 
-//     // Base price based on vehicle type
+//     // Calculation logic remains the same...
 //     const basePrice =
 //       vehicleType === "luxury"
 //         ? 200
@@ -46,19 +46,16 @@
 //               ? 100
 //               : 120;
 
-//     // Multipliers based on user inputs
 //     const ageMultiplier = age < 25 ? 1.5 : age > 65 ? 1.2 : 1;
 //     const usageMultiplier = vehicleUsage === "commercial" ? 1.4 : 1;
 //     const coverageMultiplier =
 //       deductibleAmount === 250 ? 1.5 : deductibleAmount === 500 ? 1.2 : 1;
 
-//     // Discounts
 //     const discounts = [];
 //     if (age > 30) discounts.push("Safe Driver");
 //     if (vehicleYear > 2020) discounts.push("New Vehicle");
 //     if (hasAntiTheftDevices) discounts.push("Anti-Theft Devices");
 
-//     // Calculate monthly premium
 //     const monthlyPremium = parseFloat(
 //       (
 //         basePrice *
@@ -67,21 +64,7 @@
 //         coverageMultiplier
 //       ).toFixed(2)
 //     );
-//     const parsedDeductibleAmount = parseInt(deductibleAmount, 10);
-//     const parsedCoverageDuration = parseInt(coverageDuration, 10);
 
-//     // Validate parsed values
-//     if (isNaN(parsedDeductibleAmount)) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Invalid deductible amount" });
-//     }
-//     if (isNaN(parsedCoverageDuration)) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Invalid coverage duration" });
-//     }
-//     // Create quote record in the database
 //     const quote = await prisma.quote.create({
 //       data: {
 //         fullName,
@@ -89,28 +72,28 @@
 //         email,
 //         phone,
 //         address,
-//         driversLicenseNumber: driversLicenseNumber || null, // Handle optional fields
+//         driversLicenseNumber: driversLicenseNumber || null,
 //         vehicleType,
 //         vehicleMake,
 //         vehicleModel,
 //         vehicleYear,
-//         vehicleVin: vehicleVin || null, // Handle optional fields
-//         ownershipType: ownershipType || null, // Handle optional fields
+//         vehicleVin: vehicleVin || null,
+//         ownershipType: ownershipType || null,
 //         vehicleUsage,
-//         primaryParkingLocation: primaryParkingLocation || null, // Handle optional fields
-//         annualMileage: annualMileage || null, // Handle optional fields
-//         odometerReading: odometerReading || null, // Handle optional fields
-//         estimatedValue: estimatedValue || null, // Handle optional fields
-//         hasAntiTheftDevices: hasAntiTheftDevices || false, // Default to false
-//         collisionCoverage: collisionCoverage || false, // Default to false
-//         comprehensiveCoverage: comprehensiveCoverage || false, // Default to false
-//         liabilityCoverage: liabilityCoverage || true, // Default to true
-//         roadsideAssistance: roadsideAssistance || false, // Default to false
-//         rentalReimbursement: rentalReimbursement || false, // Default to false
-//         deductibleAmount: parsedDeductibleAmount,
-//         coverageDuration: parsedCoverageDuration,
+//         primaryParkingLocation: primaryParkingLocation || null,
+//         annualMileage: annualMileage || null,
+//         odometerReading: odometerReading || null,
+//         estimatedValue: estimatedValue || null,
+//         hasAntiTheftDevices: hasAntiTheftDevices || false,
+//         collisionCoverage: collisionCoverage || false,
+//         comprehensiveCoverage: comprehensiveCoverage || false,
+//         liabilityCoverage: liabilityCoverage || true,
+//         roadsideAssistance: roadsideAssistance || false,
+//         rentalReimbursement: rentalReimbursement || false,
+//         deductibleAmount: parseInt(deductibleAmount, 10),
+//         coverageDuration: parseInt(coverageDuration, 10),
 //         startDate: new Date(startDate),
-//         coverageLevel: coverageLevel || null, // Handle optional fields
+//         coverageLevel: coverageLevel || null,
 //         monthlyPremium,
 //         estimatedSavings: parseFloat((Math.random() * 300 + 100).toFixed(2)),
 //         discounts: JSON.stringify(discounts),
@@ -124,8 +107,13 @@
 //       },
 //     });
 
-//     // Return the quote details
-//     res.status(200).json({ success: true, data: quote });
+//     res.status(200).json({
+//       success: true,
+//       data: {
+//         ...quote,
+//         discounts: quote.discounts, // Return as-is (will be parsed in frontend)
+//       },
+//     });
 //   } catch (error) {
 //     console.error("Error calculating quote:", error);
 //     res
@@ -133,6 +121,7 @@
 //       .json({ success: false, message: "Failed to calculate quote" });
 //   }
 // };
+
 // export const saveTemporaryQuote = async (req, res) => {
 //   try {
 //     const { quoteData } = req.body;
@@ -143,12 +132,14 @@
 //         .json({ success: false, message: "Quote data is required" });
 //     }
 
-//     // Generate a unique quoteId
-//     const quoteId = Math.random().toString(36).substring(2, 15); // Random string
+//     const quoteId = quoteData.id || Math.random().toString(36).substring(2, 15);
 
-//     // Save the quote data in the temporaryQuotes table
-//     const temporaryQuote = await prisma.temporaryQuote.create({
-//       data: {
+//     await prisma.temporaryQuote.upsert({
+//       where: { quoteId },
+//       update: {
+//         quoteData: JSON.stringify(quoteData),
+//       },
+//       create: {
 //         quoteId,
 //         quoteData: JSON.stringify(quoteData),
 //       },
@@ -161,9 +152,6 @@
 //   }
 // };
 
-// /**
-//  * Get Temporary Quote by ID
-//  */
 // export const getTemporaryQuoteById = async (req, res) => {
 //   try {
 //     const { quoteId } = req.params;
@@ -174,7 +162,25 @@
 //         .json({ success: false, message: "Quote ID is required" });
 //     }
 
-//     // Find the quote by quoteId
+//     // First check regular quotes
+//     const quote = await prisma.quote.findUnique({
+//       where: { id: quoteId },
+//     });
+
+//     if (quote) {
+//       return res.status(200).json({
+//         success: true,
+//         data: {
+//           ...quote,
+//           discounts:
+//             typeof quote.discounts === "string"
+//               ? JSON.parse(quote.discounts)
+//               : quote.discounts,
+//         },
+//       });
+//     }
+
+//     // If not found in regular quotes, check temporary quotes
 //     const temporaryQuote = await prisma.temporaryQuote.findUnique({
 //       where: { quoteId },
 //     });
@@ -185,9 +191,7 @@
 //         .json({ success: false, message: "Quote not found" });
 //     }
 
-//     // Parse the quote data
 //     const parsedQuoteData = JSON.parse(temporaryQuote.quoteData);
-
 //     res.status(200).json({ success: true, data: parsedQuoteData });
 //   } catch (error) {
 //     console.error("Error fetching quote by ID:", error);
@@ -195,7 +199,30 @@
 //   }
 // };
 
+// // Add this to associate quotes with users after login
+// export const associateQuoteWithUser = async (userId, quoteId) => {
+//   const temporaryQuote = await prisma.temporaryQuote.findUnique({
+//     where: { quoteId },
+//   });
+
+//   if (temporaryQuote) {
+//     const quoteData = JSON.parse(temporaryQuote.quoteData);
+//     await prisma.quote.create({
+//       data: {
+//         ...quoteData,
+//         userId,
+//         isTemporary: false,
+//       },
+//     });
+//     await prisma.temporaryQuote.delete({
+//       where: { quoteId },
+//     });
+//   }
+// };
+
 import { PrismaClient } from "@prisma/client";
+import { generateQuoteId } from "../utils/idGenerator.js"; // Import custom ID generator
+
 const prisma = new PrismaClient();
 
 export const calculateQuote = async (req, res) => {
@@ -262,8 +289,12 @@ export const calculateQuote = async (req, res) => {
       ).toFixed(2)
     );
 
+    // Generate custom quote ID
+    const quoteId = generateQuoteId();
+
     const quote = await prisma.quote.create({
       data: {
+        id: quoteId, // Use custom quote ID
         fullName,
         age,
         email,
@@ -329,7 +360,8 @@ export const saveTemporaryQuote = async (req, res) => {
         .json({ success: false, message: "Quote data is required" });
     }
 
-    const quoteId = quoteData.id || Math.random().toString(36).substring(2, 15);
+    // Generate custom quote ID
+    const quoteId = generateQuoteId();
 
     await prisma.temporaryQuote.upsert({
       where: { quoteId },
@@ -406,6 +438,7 @@ export const associateQuoteWithUser = async (userId, quoteId) => {
     const quoteData = JSON.parse(temporaryQuote.quoteData);
     await prisma.quote.create({
       data: {
+        id: generateQuoteId(), // Generate a new custom ID when associating
         ...quoteData,
         userId,
         isTemporary: false,

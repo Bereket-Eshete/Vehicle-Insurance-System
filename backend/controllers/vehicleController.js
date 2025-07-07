@@ -232,3 +232,48 @@ export const getVehicleWithoutPolicy = async (req, res) => {
     });
   }
 };
+// routes/vehicles.js
+
+export const fetchUserVehicle = async (req, res) => {
+  try {
+    const userId = req.query.userId;
+
+    if (!userId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User ID is required" });
+    }
+
+    const vehicles = await prisma.vehicle.findMany({
+      where: { customerId: userId },
+      select: {
+        id: true,
+        name: true,
+        vin: true,
+        brand: true,
+        model: true,
+        year: true,
+        color: true,
+        marketValue: true,
+        isCommercial: true,
+        vehicleType: true,
+        purchaseDate: true,
+        odometerReading: true,
+        status: true,
+      },
+    });
+
+    if (!vehicles || vehicles.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "No vehicles found" });
+    }
+
+    res.status(200).json({ success: true, data: vehicles });
+  } catch (error) {
+    console.error("Error fetching user vehicles:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch vehicles" });
+  }
+};

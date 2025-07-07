@@ -401,9 +401,11 @@ import { sendPassResetEmail } from "../utils/sendPasswordResetEmail.js";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-
+import { generateProfileId, generateUserId } from "../utils/idGenerator.js";
 dotenv.config();
 const prisma = new PrismaClient();
+const userId = generateUserId();
+const profileId = generateProfileId();
 
 export const Signup = async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
@@ -431,13 +433,18 @@ export const Signup = async (req, res) => {
 
     const newUser = await prisma.user.create({
       data: {
+        id: userId,
         firstName,
         lastName,
         email,
         password: hashePassword,
         verificationToken,
         verificationTokenExpiredAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        profile: { create: {} },
+        profile: {
+          create: {
+            id: profileId,
+          },
+        },
       },
       include: { profile: true },
     });
