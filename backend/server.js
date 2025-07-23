@@ -15,6 +15,8 @@ import satusRoutes from "./routes/statusRoutes.js";
 import claimRoutes from "./routes/claimRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import profileRoute from "./routes/profileRoute.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
+import activityRoutes from "./routes/activityRoutes.js";
 dotenv.config();
 
 const app = express();
@@ -48,6 +50,8 @@ app.use("/api/status", satusRoutes);
 app.use("/api/claim", claimRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/profile", profileRoute);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/activity", activityRoutes);
 app.listen(PORT, () => {
   testDb();
   console.log("server running on port " + PORT);

@@ -36,8 +36,9 @@ import {
 const router = express.Router();
 
 // Public routes
+router.get("/verifyemail", verifyEmail);
 router.post("/signup", Signup);
-router.get("/verify-email", verifyEmail);
+
 router.post("/resend-code", resendCode);
 router.post("/login", Login);
 router.post("/forget-password", forgetPassword);

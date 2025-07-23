@@ -428,7 +428,7 @@
 //     });
 //   }
 // };
-
+import { createPolicyDocument } from "../service/policyDocumentService.js";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import {
@@ -701,7 +701,7 @@ export const processPayment = async (req, res) => {
           vehicleType: quote.vehicleType,
         },
       });
-
+      await createPolicyDocument(newPolicy, userId);
       // Generate custom payment ID
       const paymentId = generatePaymentId();
 
@@ -760,6 +760,7 @@ export const processPayment = async (req, res) => {
         newPolicyId: newPolicy.id,
         vehicleId: vehicle.id,
         receipt,
+        documentUrl: newPolicy.documentUrl || null, // Include document URL if available
       });
     }
   } catch (error) {

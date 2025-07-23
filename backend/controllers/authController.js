@@ -463,22 +463,95 @@ export const Signup = async (req, res) => {
   }
 };
 
+// export const verifyEmail = async (req, res) => {
+//   const { token } = req.query;
+//   try {
+//     const user = await prisma.user.findFirst({
+//       where: {
+//         verificationToken: token,
+//         verificationTokenExpiredAt: { gt: new Date() },
+//       },
+//     });
+
+//     if (!user) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Invalid or expired token" });
+//     }
+
+//     const updatedUser = await prisma.user.update({
+//       where: { id: user.id },
+//       data: {
+//         isVerified: true,
+//         verificationToken: null,
+//         verificationTokenExpiredAt: null,
+//       },
+//     });
+
+//     // Generate new token with verified status
+//     const newToken = generateTokenAndSetCookie(res, updatedUser);
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Email verified successfully",
+//       user: {
+//         id: updatedUser.id,
+//         email: updatedUser.email,
+//         firstName: updatedUser.firstName,
+//         lastName: updatedUser.lastName,
+//         role: updatedUser.role,
+//         isVerified: true,
+//       },
+//       token: newToken,
+//     });
+//   } catch (error) {
+//     console.error("Email verification error:", error);
+//     return res.status(500).json({ success: false, message: error.message });
+//   }
+// };
 export const verifyEmail = async (req, res) => {
   const { token } = req.query;
+
+  if (!token) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Token is required" });
+  }
+
   try {
+    // Log the received token and current time for debugging
+    console.log("Verification attempt - Token:", token);
+    console.log("Current server time:", new Date());
+
+    // Find the user with a matching token that hasn't expired
     const user = await prisma.user.findFirst({
       where: {
         verificationToken: token,
-        verificationTokenExpiredAt: { gt: new Date() },
+        verificationTokenExpiredAt: { gt: new Date() }, // Checks if expiration is in the future
       },
     });
 
     if (!user) {
+      // Additional debug: Check if the token exists without expiration check
+      const userWithTokenOnly = await prisma.user.findFirst({
+        where: { verificationToken: token },
+      });
+
+      if (userWithTokenOnly) {
+        console.log(
+          "Token exists but is expired. Expiry time:",
+          userWithTokenOnly.verificationTokenExpiredAt
+        );
+      } else {
+        console.log("Token not found in database");
+      }
+
       return res
         .status(400)
         .json({ success: false, message: "Invalid or expired token" });
     }
 
+    // Update user to mark as verified and clear token fields
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -488,7 +561,7 @@ export const verifyEmail = async (req, res) => {
       },
     });
 
-    // Generate new token with verified status
+    // Generate new JWT token with verified status
     const newToken = generateTokenAndSetCookie(res, updatedUser);
 
     return res.status(200).json({
@@ -509,7 +582,6 @@ export const verifyEmail = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
-
 export const resendCode = async (req, res) => {
   const { email } = req.body;
   try {

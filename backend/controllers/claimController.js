@@ -100,6 +100,126 @@ import { generateClaimId } from "../utils/idGenerator.js"; // Import your ID gen
 //     });
 //   }
 // };
+// import { sendAdminNotification } from "../service/notificationService.js";
+// export const createClaim = async (req, res) => {
+//   try {
+//     const {
+//       type,
+//       incidentDate,
+//       incidentTime,
+//       location,
+//       description,
+//       policyId,
+//       currentMileage,
+//       usePreferredShop,
+//       customShopName,
+//       customShopAddress,
+//       contactPhone,
+//       contactEmail,
+//       supportingDocuments,
+//       userId, // Get userId from request body
+//     } = req.body;
+
+//     // Validate required fields
+//     if (
+//       !type ||
+//       !incidentDate ||
+//       !incidentTime ||
+//       !location ||
+//       !description ||
+//       !policyId ||
+//       !userId // Add userId to required fields
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Missing required fields",
+//       });
+//     }
+
+//     // Verify the policy exists and belongs to the user
+//     const policy = await prisma.policy.findUnique({
+//       where: { id: policyId },
+//       include: { vehicle: true },
+//     });
+
+//     if (!policy) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Policy not found",
+//       });
+//     }
+
+//     // Verify the user exists
+//     const user = await prisma.user.findUnique({
+//       where: { id: userId },
+//     });
+
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "User not found",
+//       });
+//     }
+
+//     // Check if policy belongs to user (optional but recommended)
+//     if (policy.customerId !== userId) {
+//       return res.status(403).json({
+//         success: false,
+//         message: "You are not authorized to file a claim for this policy",
+//       });
+//     }
+
+//     // Generate a unique claim ID
+//     const claimId = generateClaimId();
+
+//     // Create the claim
+//     const newClaim = await prisma.claim.create({
+//       data: {
+//         id: claimId,
+//         type,
+//         status: "pending",
+//         supportingDocument: supportingDocuments?.join(", ") || "",
+//         date: new Date(`${incidentDate}T${incidentTime}:00Z`),
+//         reason: description,
+//         amount: 0,
+//         customerId: userId, // Use the userId from request
+//         vehicleId: policy.vehicleId,
+//         policyId: policy.id,
+//         details: {
+//           currentMileage: currentMileage || "",
+//           usePreferredShop: Boolean(usePreferredShop),
+//           customShopName: customShopName || "",
+//           customShopAddress: customShopAddress || "",
+//           contactPhone: contactPhone || "",
+//           contactEmail: contactEmail || "",
+//         },
+//       },
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       message: "Claim submitted successfully",
+//       claim: newClaim,
+//     });
+//   } catch (error) {
+//     console.error("Error creating claim:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to submit claim",
+//       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+//     });
+//   }
+//   await sendAdminNotification({
+//     id: generateNotificationId(),
+//     customerId: userId,
+//     title: "New Claim Submitted",
+//     message: `A new ${type} claim has been submitted by ${user.firstName} ${user.lastName}`,
+//     type: "claim",
+//   });
+// };
+// controllers/claimController.ts
+
+import { createClaimNotification } from "../service/notificationService.js";
 
 export const createClaim = async (req, res) => {
   try {
@@ -117,7 +237,7 @@ export const createClaim = async (req, res) => {
       contactPhone,
       contactEmail,
       supportingDocuments,
-      userId, // Get userId from request body
+      userId,
     } = req.body;
 
     // Validate required fields
@@ -128,7 +248,7 @@ export const createClaim = async (req, res) => {
       !location ||
       !description ||
       !policyId ||
-      !userId // Add userId to required fields
+      !userId
     ) {
       return res.status(400).json({
         success: false,
@@ -136,32 +256,25 @@ export const createClaim = async (req, res) => {
       });
     }
 
-    // Verify the policy exists and belongs to the user
-    const policy = await prisma.policy.findUnique({
-      where: { id: policyId },
-      include: { vehicle: true },
-    });
+    // Verify policy and user
+    const [policy, user] = await Promise.all([
+      prisma.policy.findUnique({
+        where: { id: policyId },
+        include: { vehicle: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+      }),
+    ]);
 
-    if (!policy) {
-      return res.status(404).json({
-        success: false,
-        message: "Policy not found",
-      });
-    }
-
-    // Verify the user exists
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    // Check if policy belongs to user (optional but recommended)
+    if (!policy)
+      return res
+        .status(404)
+        .json({ success: false, message: "Policy not found" });
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     if (policy.customerId !== userId) {
       return res.status(403).json({
         success: false,
@@ -169,20 +282,17 @@ export const createClaim = async (req, res) => {
       });
     }
 
-    // Generate a unique claim ID
-    const claimId = generateClaimId();
-
     // Create the claim
     const newClaim = await prisma.claim.create({
       data: {
-        id: claimId,
+        id: generateClaimId(),
         type,
         status: "pending",
         supportingDocument: supportingDocuments?.join(", ") || "",
         date: new Date(`${incidentDate}T${incidentTime}:00Z`),
         reason: description,
         amount: 0,
-        customerId: userId, // Use the userId from request
+        customerId: userId,
         vehicleId: policy.vehicleId,
         policyId: policy.id,
         details: {
@@ -195,6 +305,13 @@ export const createClaim = async (req, res) => {
         },
       },
     });
+
+    // Create admin notification
+    // await createClaimNotification({
+    //   claimId: newClaim.id,
+    //   claimType: newClaim.type,
+    //   userName: `${user.firstName} ${user.lastName}`,
+    // });
 
     res.status(201).json({
       success: true,
@@ -210,8 +327,8 @@ export const createClaim = async (req, res) => {
     });
   }
 };
-// controllers/claimController.ts
 
+// ... keep your existing getUserClaims and getClaimTimeline functions ...
 export const getUserClaims = async (req, res) => {
   try {
     // Get userId from query params instead of req.user

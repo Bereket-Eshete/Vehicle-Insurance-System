@@ -5,16 +5,23 @@ const prisma = new PrismaClient();
 
 export const authMiddleware = async (req, res, next) => {
   try {
-    // Get token from cookies instead of headers
-    const token = req.cookies.token;
+    // Get token from cookies or Authorization header
+    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
     if (!token) {
       return res.status(401).json({
+        success: false,
         message: "Authentication required. Please log in.",
       });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Make sure we have the userId in the decoded token
+    if (!decoded.userId) {
+      throw new Error("Invalid token payload");
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
@@ -27,17 +34,24 @@ export const authMiddleware = async (req, res, next) => {
     });
 
     if (!user) {
-      // Clear invalid token
       res.clearCookie("token");
       return res.status(401).json({
-        message: "Your session is invalid. Please log in again.",
+        success: false,
+        message: "User not found. Please log in again.",
       });
     }
 
-    req.user = user;
+    // Attach the full user object to the request
+    req.user = {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+    };
+
     next();
   } catch (error) {
-    // Clear invalid token
     res.clearCookie("token");
 
     let message = "Authentication failed";
@@ -48,6 +62,7 @@ export const authMiddleware = async (req, res, next) => {
     }
 
     res.status(401).json({
+      success: false,
       message,
       error: error.message,
     });

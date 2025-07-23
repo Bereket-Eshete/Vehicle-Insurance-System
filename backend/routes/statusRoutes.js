@@ -1,10 +1,12 @@
-// routes/statsRoutes.ts
 import express from "express";
-import { getDashboardStats } from "../controllers/statusControllers.js";
-import { authMiddleware } from "../midleware/authmidleware.js";
+import {
+  getDashboardStats,
+  getStats,
+} from "../controllers/statusControllers.js";
 
 const router = express.Router();
 
-router.get("/dashboard-stats", authMiddleware, getDashboardStats);
+router.get("/dashboard-stats", getDashboardStats);
+router.get("/stats", getStats);
 
 export default router;

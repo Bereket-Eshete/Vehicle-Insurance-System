@@ -1,8 +1,11 @@
 // src/controllers/policyController.js
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
+import { getPolicyDocumentUrl } from "../service/policyDocumentService.js";
+import fs from "fs";
+import path from "path";
 // const userId = "71ce959c-cf1a-47bd-9455-ea7bc3c5a783";
-export const getAllPolicies = async (req, res) => {
+export const getAllPoliciess = async (req, res) => {
   try {
     // Only get policies that don't have a customer assigned (public/available policies)
     const policies = await prisma.policy.findMany({
@@ -51,7 +54,6 @@ export const getAllPolicies = async (req, res) => {
     });
   }
 };
-// Fetch a specific policy by ID
 export const getPolicyById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -76,73 +78,6 @@ export const getPolicyById = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-// controllers/policyController.ts
-
-export const getCustomerPolicies = async (req, res) => {
-  try {
-    // Extract customerId from the request query
-    // const { customerId } = req.query;
-
-    // // Validate customerId
-    // if (!customerId || typeof customerId !== "string") {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Valid customerId is required as a query parameter",
-    //   });
-    // }
-
-    // Fetch policies associated with the specific customerId
-    const policies = await prisma.policy.findMany({
-      where: {
-        customerId: "71ce959c-cf1a-47bd-9455-ea7bc3c5a783", // Filter for policies belonging to this
-      },
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        premiumAmount: true,
-        coverageDetails: true,
-        features: true,
-        vehicleType: true,
-        startDate: true,
-        endDate: true,
-        vehicle: {
-          select: {
-            name: true, // Include vehicle details if needed
-          },
-        },
-      },
-      orderBy: {
-        startDate: "asc", // Optional: sort by policy start date
-      },
-    });
-
-    // Optional: Log the count for debugging
-    console.log(
-      `Found ${policies.length} policies for customerId: ${customerId}`
-    );
-
-    // Parse the 'features' field if it's stored as JSON
-    const parsedPolicies = policies.map((policy) => ({
-      ...policy,
-      features: policy.features || [], // Default to empty array if null
-    }));
-
-    // Return the policies
-    res.status(200).json({
-      success: true,
-      count: policies.length,
-      parsedPolicies,
-    });
-  } catch (error) {
-    console.error("Error fetching customer policies:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to retrieve customer policies",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
   }
 };
 export const getUserPolicies = async (req, res) => {
@@ -232,8 +167,6 @@ export const getUserPolicies = async (req, res) => {
     });
   }
 };
-// controllers/policyController.ts
-// controllers/policyController.js
 export const getUserPoliciesForDashboard = async (req, res) => {
   try {
     const { userId } = req.query;
@@ -315,3 +248,348 @@ export const getUserPoliciesForDashboard = async (req, res) => {
     });
   }
 };
+export const downloadPolicyDocument = async (req, res) => {
+  try {
+    const { policyId } = req.params;
+
+    // Verify policy exists and user has access
+    const policy = await prisma.policy.findFirst({
+      where: { id: policyId, customerId: req.user.id },
+      include: { user: true, vehicle: true },
+    });
+
+    if (!policy) {
+      return res.status(404).json({ error: "Policy not found" });
+    }
+
+    // Generate or get the PDF
+    const pdfBuffer = await generatePolicyPDF(
+      policy,
+      policy.user,
+      policy.vehicle
+    );
+
+    // Set headers
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Length", pdfBuffer.length);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="policy_${policyId}.pdf"`
+    );
+    res.setHeader("Content-Transfer-Encoding", "binary");
+
+    // Send the PDF
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("PDF serve error:", error);
+    res.status(500).json({ error: "Failed to generate PDF document" });
+  }
+};
+// Get all policies for admin dashboard
+export const getAllPolicies = async (req, res) => {
+  try {
+    const policies = await prisma.policy.findMany({
+      include: {
+        customer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        vehicle: {
+          select: {
+            id: true,
+            model: true,
+            brand: true,
+            year: true,
+            vin: true,
+          },
+        },
+      },
+      orderBy: {
+        startDate: "desc",
+      },
+    });
+
+    const formattedPolicies = policies.map((policy) => {
+      // Format customer name
+      const customerName = policy.customer
+        ? `${policy.customer.firstName || ""} ${policy.customer.lastName || ""}`.trim()
+        : "No customer assigned";
+
+      // Format vehicle information
+      const vehicleModel = policy.vehicle
+        ? `${policy.vehicle.brand || ""} ${policy.vehicle.model || ""} ${policy.vehicle.year || ""}`.trim()
+        : "No vehicle assigned";
+
+      return {
+        id: policy.id,
+        policyName: policy.name,
+        customerName: customerName,
+        customerEmail: policy.customer?.email || "",
+        vehicleModel: vehicleModel,
+        vin: policy.vehicle?.vin || "N/A", // Using VIN instead of license plate
+        coverage: `$${policy.coverageAmount?.toLocaleString() || "0"}`,
+        premium: `$${policy.premiumAmount?.toLocaleString() || "0"}/year`,
+        status: policy.status || "Unknown",
+        startDate: policy.startDate?.toISOString().split("T")[0] || "N/A",
+        endDate: policy.endDate?.toISOString().split("T")[0] || "N/A",
+        documentUrl: policy.documentUrl || null,
+        customerId: policy.customer?.id || null,
+        vehicleId: policy.vehicle?.id || null,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: formattedPolicies,
+      count: policies.length,
+    });
+  } catch (error) {
+    console.error("Error fetching policies:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch policies",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+// Create new policy (admin)
+export const createPolicy = async (req, res) => {
+  try {
+    const {
+      name,
+      type,
+      premiumAmount,
+      coverageAmount,
+      status,
+      startDate,
+      endDate,
+      customerId,
+      vehicleId,
+      coverageDetails,
+      termsAndConditions,
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !name ||
+      !type ||
+      !premiumAmount ||
+      !coverageAmount ||
+      !status ||
+      !startDate ||
+      !endDate
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+      });
+    }
+
+    const newPolicy = await prisma.policy.create({
+      data: {
+        name,
+        type,
+        premiumAmount: parseFloat(premiumAmount),
+        coverageAmount: parseFloat(coverageAmount),
+        status,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        coverageDetails: coverageDetails || "",
+        termsAndConditions: termsAndConditions || "",
+        customerId: customerId || null,
+        vehicleId: vehicleId || null,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      data: newPolicy,
+      message: "Policy created successfully",
+    });
+  } catch (error) {
+    console.error("Error creating policy:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create policy",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// Update policy (admin)
+export const updatePolicy = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      status,
+      startDate,
+      endDate,
+      premiumAmount,
+      coverageAmount,
+      customerId,
+      vehicleId,
+    } = req.body;
+
+    // Check if policy exists
+    const existingPolicy = await prisma.policy.findUnique({
+      where: { id },
+    });
+
+    if (!existingPolicy) {
+      return res.status(404).json({
+        success: false,
+        message: "Policy not found",
+      });
+    }
+
+    const updatedPolicy = await prisma.policy.update({
+      where: { id },
+      data: {
+        name: name || existingPolicy.name,
+        status: status || existingPolicy.status,
+        startDate: startDate ? new Date(startDate) : existingPolicy.startDate,
+        endDate: endDate ? new Date(endDate) : existingPolicy.endDate,
+        premiumAmount: premiumAmount
+          ? parseFloat(premiumAmount)
+          : existingPolicy.premiumAmount,
+        coverageAmount: coverageAmount
+          ? parseFloat(coverageAmount)
+          : existingPolicy.coverageAmount,
+        customerId:
+          customerId !== undefined ? customerId : existingPolicy.customerId,
+        vehicleId:
+          vehicleId !== undefined ? vehicleId : existingPolicy.vehicleId,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: updatedPolicy,
+      message: "Policy updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating policy:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update policy",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// Delete policy (admin)
+export const deletePolicy = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if policy exists
+    const existingPolicy = await prisma.policy.findUnique({
+      where: { id },
+    });
+
+    if (!existingPolicy) {
+      return res.status(404).json({
+        success: false,
+        message: "Policy not found",
+      });
+    }
+
+    await prisma.policy.delete({
+      where: { id },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Policy deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting policy:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete policy",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// Get policy by ID for admin
+// export const getPolicyById = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const policy = await prisma.policy.findUnique({
+//       where: { id },
+//       include: {
+//         customer: {
+//           select: {
+//             id: true,
+//             firstName: true,
+//             lastName: true,
+//             email: true,
+//           },
+//         },
+//         vehicle: {
+//           select: {
+//             id: true,
+//             model: true,
+//             brand: true,
+//             year: true,
+//             licensePlate: true,
+//           },
+//         },
+//       },
+//     });
+
+//     if (!policy) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Policy not found",
+//       });
+//     }
+
+//     const formattedPolicy = {
+//       id: policy.id,
+//       name: policy.name,
+//       type: policy.type,
+//       premiumAmount: policy.premiumAmount,
+//       coverageAmount: policy.coverageAmount,
+//       status: policy.status,
+//       startDate: policy.startDate.toISOString().split("T")[0],
+//       endDate: policy.endDate.toISOString().split("T")[0],
+//       coverageDetails: policy.coverageDetails,
+//       termsAndConditions: policy.termsAndConditions,
+//       documentUrl: policy.documentUrl,
+//       customer: policy.customer
+//         ? {
+//             id: policy.customer.id,
+//             name: `${policy.customer.firstName || ""} ${policy.customer.lastName || ""}`.trim(),
+//             email: policy.customer.email,
+//           }
+//         : null,
+//       vehicle: policy.vehicle
+//         ? {
+//             id: policy.vehicle.id,
+//             model: `${policy.vehicle.brand || ""} ${policy.vehicle.model || ""} ${policy.vehicle.year || ""}`.trim(),
+//             licensePlate: policy.vehicle.licensePlate,
+//           }
+//         : null,
+//     };
+
+//     res.json({
+//       success: true,
+//       data: formattedPolicy,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching policy:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch policy",
+//       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+//     });
+//   }
+// };
