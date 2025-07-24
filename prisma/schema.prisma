@@ -13,7 +13,7 @@ enum Role {
 }
 
 model User {
-  id                         String    @id @default(uuid())
+  id                         String    @id 
   email                      String    @unique
   password                   String
   firstName                  String
@@ -26,19 +26,20 @@ model User {
   role                       Role      @default(CUSTOMER)
   createdAt                  DateTime  @default(now())
   updatedAt                  DateTime  @updatedAt
-
+  lastLogin                  DateTime? 
   profile          Profile?
   vehicles         Vehicle[]
   policies         Policy[]
   payments         Payment[]
-  claimsAsCustomer Claim[]        @relation("CustomerClaims")
-  claimsAsAdmin    Claim[]        @relation("AdminClaims")
+  claimsAsCustomer  Claim[]     @relation("CustomerClaims")
+  claimsAsAdmin     Claim[]     @relation("AdminClaims")
   notifications    Notification[]
   reports          Report[]
+  quotes                     Quote[]
 }
 
 model Profile {
-  id            String    @id @default(uuid())
+  id            String    @id 
   userId        String    @unique
   phone         String?
   address       String?
@@ -58,12 +59,11 @@ model Profile {
   qualification String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Vehicle {
-  id              String   @id @default(uuid())
+  id              String   @id 
   name            String
   model           String
   status          String
@@ -81,30 +81,11 @@ model Vehicle {
   customer        User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   policies        Policy[]
   claims          Claim[]
-}
-
-model Policy {
-  id                 String    @id @default(uuid())
-  name               String
-  type               String
-  premiumAmount      Float
-  startDate          DateTime
-  endDate            DateTime
-  coverageDetails    String
-  status             String
-  coverageAmount     Float
-  gracePeriod        Int
-  termsAndConditions String
-  customerId         String
-  customer           User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  payments           Payment[]
-  claims             Claim[]
-  Vehicle            Vehicle?  @relation(fields: [vehicleId], references: [id])
-  vehicleId          String?
+  quotes                     Quote[]
 }
 
 model Payment {
-  payNo       String   @id @default(uuid())
+  payNo       String   @id 
   name        String
   date        DateTime
   status      String
@@ -122,26 +103,31 @@ model Payment {
 }
 
 model Claim {
-  id                 String   @id @default(uuid())
+  id                 String   @id 
   type               String
-  status             String
+  status             String   @default("pending")
   supportingDocument String?
   date               DateTime
   reason             String
-  amount             Float
+  amount             Float    @default(0)
   customerId         String
   adminId            String?
   vehicleId          String
   policyId           String
+  details            Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
+  // Relations
   customer User    @relation("CustomerClaims", fields: [customerId], references: [id], onDelete: Cascade)
   admin    User?   @relation("AdminClaims", fields: [adminId], references: [id], onDelete: SetNull)
   vehicle  Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   policy   Policy  @relation(fields: [policyId], references: [id], onDelete: Cascade)
 }
 
+
 model Notification {
-  id         String   @id @default(uuid())
+  id         String   @id 
   title      String
   message    String
   type       String
@@ -152,7 +138,7 @@ model Notification {
 }
 
 model Report {
-  id            String   @id @default(uuid())
+  id            String   @id 
   type          String
   generatedDate DateTime
   content       String
@@ -160,4 +146,94 @@ model Report {
   remarks       String?
   adminId       String?
   admin         User?    @relation(fields: [adminId], references: [id], onDelete: SetNull)
+}
+model Quote {
+  id                 String   @id 
+  userId             String?  // Optional if the user isn’t logged in
+  user               User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  vehicleId          String?
+  vehicle            Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  fullName           String
+  age                Int
+  email              String
+  phone              String
+  address            String
+  driversLicenseNumber String? // Optional
+  vehicleType        String
+  vehicleMake        String
+  vehicleModel       String
+  vehicleYear        Int
+  vehicleVin         String?  // Optional
+  ownershipType      String?  // Optional
+  vehicleUsage       String
+  primaryParkingLocation String? // Optional
+  annualMileage      Int?
+  odometerReading    Float?
+  estimatedValue     Float?   // Optional
+  hasAntiTheftDevices Boolean? // Optional
+  collisionCoverage  Boolean? // Optional
+  comprehensiveCoverage Boolean? // Optional
+  liabilityCoverage  Boolean? // Optional
+  roadsideAssistance Boolean? // Optional
+  rentalReimbursement Boolean? // Optional
+  deductibleAmount   Int
+  coverageDuration   Int
+  startDate          DateTime
+  monthlyPremium     Float
+  estimatedSavings   Float
+  discounts          Json     // Array of applied discounts
+  coverageLevel      String?  // Optional
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Additional Drivers (create a separate model for this)
+  additionalDrivers  AdditionalDriver[]
+
+  // Add a relation back to Policy
+  policies           Policy[] // A quote can generate multiple policies
+}
+
+// Define the AdditionalDriver model
+model AdditionalDriver {
+  id           String   @id 
+  quoteId      String   // Link to the quote
+  quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  name         String
+  age          Int
+  drivingHistory String
+}
+model Policy {
+  id                 String    @id @default(uuid())
+  name               String
+  type               String
+  basePrice          Float?    // Temporary nullable
+  description        String?   // Temporary nullable
+  longDescription    String?   // Temporary nullable
+  premiumBreakdown   Json?     // Temporary nullable
+  premiumAmount      Float
+  startDate          DateTime
+  endDate            DateTime
+  coverageDetails    String
+  status             String
+  coverageAmount     Float
+  gracePeriod        Int
+  termsAndConditions String
+  vehicleType        String?
+  features           Json      // Add this line
+  customerId         String?   // Make customerId optional
+  customer           User?     @relation(fields: [customerId], references: [id], onDelete: Cascade) // Update relation to optional
+  payments           Payment[]
+  claims             Claim[]
+  vehicle            Vehicle?  @relation(fields: [vehicleId], references: [id])
+  vehicleId          String?
+  quoteId            String?   // Link to the quote that generated this policy
+  quote              Quote?    @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  documentUrl String?
+}
+model TemporaryQuote {
+  id          Int      @id @default(autoincrement()) // Auto-incrementing primary key
+  quoteId     String   @unique // Unique identifier for the temporary quote
+  quoteData   Json     // JSONB field to store the quote data
+  createdAt   DateTime @default(now()) // Timestamp when the record is created
+  expiresAt   DateTime @default(dbgenerated("CURRENT_TIMESTAMP + INTERVAL '30 days'")) // Expiry timestamp
 }
